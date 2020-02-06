@@ -24,38 +24,35 @@ def loadData():
 
 def MSE(W, b, x, y, reg):
     # Your implementation here
-    dotp = np.dot(W,x)
-    if(len(dotp.shape) == 1):
-        dotp = np.reshape(dotp,(dotp.shape[0],1))
-    namesarehard = dotp + b - y
-    loss = (np.linalg.norm(namesarehard,2))**2
+    predictions = np.dot(x,W) + b
+    err = predictions - y
+    loss = (np.linalg.norm(err,2))**2
     loss = loss/len(y)
     for i in range(0,len(W)):
         loss += reg/2*(W[i])**2
-    return loss
+    return loss[0]
 
 def grad_MSE(W, b, x, y, reg):
     # Your implementation here
-    dotp = np.dot(W,x)
-    if len(dotp.shape) == 1:
-        dotp = np.reshape(dotp, (dotp.shape[0],1))
-    namesarehard = dotp + b - y
-    grad_bias = np.sum(namesarehard)*2/len(y)
+    predictions = np.dot(x,W) + b
+    err = predictions - y
+    grad_bias = np.sum(err)*2/len(y)
     grad_weights = np.zeros(W.shape)
     for i in range(0,len(grad_weights)):
-        grad_weights[i] = (2/len(y))*(np.dot(x[i],namesarehard)[0])+W[i]*(reg/2)/np.linalg.norm(W,2)
+        namesarehard = np.transpose(x)
+        namesarehard = namesarehard[i]
+        someshit = np.dot(np.transpose(err),namesarehard)
+        theWalrus = W[i]
+        grad_weights[i] = (2/len(y))*(someshit[0])+theWalrus*(reg/2)/np.linalg.norm(W,2)
     return grad_weights, grad_bias
 
 def acc(W,b,x,y):
-    dotp = np.dot(W,x)
-    if len(dotp.shape) == 1:
-        dotp = np.reshape(dotp,(dotp.shape[0],1))
-    prediction = dotp+b
+    predictions = np.dot(x,W)+b
     accuracy = 0.0
-    for i in range(0,len(prediction)):
-        if prediction[i][0] > 0.5 and y[i][0] == 1:
+    for i in range(0,len(predictions)):
+        if predictions[i][0] >= 0.5 and y[i][0] == 1:
             accuracy += 1.0
-        elif prediction[i][0] < 0.5 and y[i][0] == 0:
+        elif predictions[i][0] < 0.5 and y[i][0] == 0:
             accuracy += 1.0
     accuracy = accuracy/len(y)
     return accuracy
@@ -73,33 +70,35 @@ def grad_descent(W, b, x, y, val_x, val_y, test_x, test_y, alpha, epochs, reg, e
         test_accs = []
         iterations = []
         for i in range(0,epochs):
-            print("epoch: ",i)
-            loss = MSE(weights,bias,x,y,reg)
-            accuracy = acc(weights,bias,x,y)
-            print("training loss = ",loss)
-            print("training acc = ",accuracy)
-            grad_weights, grad_bias = grad_MSE(weights,bias,x,y,reg)
-            for j in range(0,len(grad_weights)):
-                if abs(alpha*grad_weights[j]) > error_tol:
-                    weights[j] = weights[j] - alpha*grad_weights[j]
-            if abs(alpha*grad_bias) > error_tol:
-                bias = bias - alpha*grad_bias
-            if error_tol >= abs(max(np.amax(grad_weights),grad_bias)):
-                break
-            val_loss = MSE(weights,bias,val_x,val_y,reg)
-            print("validation loss = ",val_loss)
-            val_acc = acc(weights,bias,val_x,val_y)
-            print("validation accuracy = ",val_acc)
-            test_losses += [MSE(weights, bias, test_x, test_y, reg)]
-            test_accs += [acc(weights, bias, test_x, test_y)]
-            iterations.append(i)
-            losses.append(loss)
-            accs.append(accuracy)
-            val_losses.append(val_loss)
-            val_accs.append(val_acc)
-        print("test_loss = ",MSE(weights,bias,test_x,test_y,reg))
-        print("test_acc = ",acc(weights,bias,test_x,test_y))
-        return weights, bias, losses, accs, val_losses, val_accs, test_losses, test_accs
+		print("epoch: ",i)
+        	loss = MSE(weights,bias,x,y,reg)
+	        accuracy = acc(weights,bias,x,y)
+        	print("training loss = ",loss)
+	        print("training acc = ",accuracy)
+        	grad_weights, grad_bias = grad_MSE(weights,bias,x,y,reg)
+	        for j in range(0,len(grad_weights)):
+        	    if abs(alpha*grad_weights[j]) > error_tol:
+                	weights[j] = weights[j] - alpha*grad_weights[j]
+	        if abs(alpha*grad_bias) > error_tol:
+        	    bias = bias - alpha*grad_bias
+	        if error_tol >= abs(max(np.amax(grad_weights),grad_bias)):
+        	    break
+	        val_loss = MSE(weights,bias,val_x,val_y,reg)
+        	print("validation loss = ",val_loss)
+        	val_acc = acc(weights,bias,val_x,val_y)
+        	print("validation accuracy = ",val_acc)
+        	iterations.append(i)
+		losses.append(loss)
+		accs.append(accuracy)
+		val_losses.append(val_loss)
+		val_accs.append(val_acc)
+		test_loss = MSE(weights,bias,test_x,test_y,reg)
+		test_acc = acc(weights,bias,test_x,test_y)
+		test_losses.append(test_loss)
+		test_accs.append(test_acc)
+		print("test_loss = ",MSE(weights,bias,test_x,test_y,reg))
+		print("test_acc = ",acc(weights,bias,test_x,test_y))
+		return weights, bias, losses, accs, val_losses, val_accs, test_losses, test_accs
 
     else: # LossType = CE
         x = np.transpose(x)
@@ -199,16 +198,16 @@ def buildGraph(loss="MSE"):
 
 trainData, validData, testData, trainTarget, validTarget, testTarget = loadData()
 
+trainData = np.reshape(trainData,(trainData.shape[0],trainData.shape[1]*trainData.shape[2]))
+validData = np.reshape(validData,(validData.shape[0],validData.shape[1]*validData.shape[2]))
+testData = np.reshape(testData,(testData.shape[0],(testData.shape[1]*testData.shape[2])))
+
 sample_weights = np.zeros(784)
-trainData = np.moveaxis(trainData,0,-1)
-trainData = np.reshape(trainData,(trainData.shape[0]*trainData.shape[1],trainData.shape[2]))
-validData = np.moveaxis(validData,0,-1)
-validData = np.reshape(validData,(784,100))
-testData = np.moveaxis(testData,0,-1)
-testData = np.reshape(testData,(784,145))
 for i in range(0,len(sample_weights)):
     sample_weights[i] = np.random.randint(-10,10)
-sample_weights=sample_weights.reshape(-1,1)
+
+sample_weights = np.expand_dims(sample_weights,1)
+
 sample_bias = np.random.randint(-10,10)
 
 # start = time()
