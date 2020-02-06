@@ -60,50 +60,129 @@ def acc(W,b,x,y):
     accuracy = accuracy/len(y)
     return accuracy
 
-def grad_descent(W, b, x, y, val_x, val_y, test_x, test_y, alpha, epochs, reg, error_tol):
+def grad_descent(W, b, x, y, val_x, val_y, test_x, test_y, alpha, epochs, reg, error_tol,lossType="CE"):
     # Your implementation here
-    weights = W
-    bias = b
-    losses = []
-    accs = []
-    val_losses = []
-    val_accs = []
-    iterations = []
-    for i in range(0,epochs):
-        print("epoch: ",i)
-        loss = MSE(weights,bias,x,y,reg)
-        accuracy = acc(weights,bias,x,y)
-        print("training loss = ",loss)
-        print("training acc = ",accuracy)
-        grad_weights, grad_bias = grad_MSE(weights,bias,x,y,reg)
-        for j in range(0,len(grad_weights)):
-            if abs(alpha*grad_weights[j]) > error_tol:
-                weights[j] = weights[j] - alpha*grad_weights[j]
-        if abs(alpha*grad_bias) > error_tol:
-            bias = bias - alpha*grad_bias
-        if error_tol >= abs(max(np.amax(grad_weights),grad_bias)):
-            break
-        val_loss = MSE(weights,bias,val_x,val_y,reg)
-        print("validation loss = ",val_loss)
-        val_acc = acc(weights,bias,val_x,val_y)
-        print("validation accuracy = ",val_acc)
-        iterations.append(i)
-        losses.append(loss)
-        accs.append(accuracy)
-        val_losses.append(val_loss)
-        val_accs.append(val_acc)
-    test_loss = MSE(weights,bias,test_x,test_y,reg)
-    test_acc = acc(weights,bias,test_x,test_y)
-    print("test_loss = ",test_loss)
-    print("test_acc = ",test_acc)
-    return weights, bias, losses, accs, val_losses, val_accs, test_loss, test_acc, iterations
+    if (lossType=="MSE"):
+        weights = W
+        bias = b
+        losses = []
+        accs = []
+        val_losses = []
+        val_accs = []
+        test_losses = []
+        test_accs = []
+        iterations = []
+        for i in range(0,epochs):
+            print("epoch: ",i)
+            loss = MSE(weights,bias,x,y,reg)
+            accuracy = acc(weights,bias,x,y)
+            print("training loss = ",loss)
+            print("training acc = ",accuracy)
+            grad_weights, grad_bias = grad_MSE(weights,bias,x,y,reg)
+            for j in range(0,len(grad_weights)):
+                if abs(alpha*grad_weights[j]) > error_tol:
+                    weights[j] = weights[j] - alpha*grad_weights[j]
+            if abs(alpha*grad_bias) > error_tol:
+                bias = bias - alpha*grad_bias
+            if error_tol >= abs(max(np.amax(grad_weights),grad_bias)):
+                break
+            val_loss = MSE(weights,bias,val_x,val_y,reg)
+            print("validation loss = ",val_loss)
+            val_acc = acc(weights,bias,val_x,val_y)
+            print("validation accuracy = ",val_acc)
+            test_losses += [MSE(weights, bias, test_x, test_y, reg)]
+            test_accs += [acc(weights, bias, test_x, test_y)]
+            iterations.append(i)
+            losses.append(loss)
+            accs.append(accuracy)
+            val_losses.append(val_loss)
+            val_accs.append(val_acc)
+        print("test_loss = ",MSE(weights,bias,test_x,test_y,reg))
+        print("test_acc = ",acc(weights,bias,test_x,test_y))
+        return weights, bias, losses, accs, val_losses, val_accs, test_losses, test_accs
+
+    else: # LossType = CE
+        x = np.transpose(x)
+        val_x = np.transpose(val_x)
+        test_x = np.transpose(test_x)
+        # print(x.shape,val_x.shape,test_x.shape)
+
+        trainLossPlot = []
+        validLossPlot = []
+        testLossPlot = []
+
+        validAccPlot = []
+        trainAccPlot = []
+        testAccPlot = []
+
+        for e in range(epochs):
+            print(e)
+
+            dW, db = gradCE(W, b, x, y, reg)
+            trainLossPlot += [crossEntropyLoss(W, b, x, y, reg)]
+            validLossPlot += [crossEntropyLoss(W, b, val_x, val_y, reg)]
+            testLossPlot += [crossEntropyLoss(W, b, test_x, test_y, reg)]
+
+            trainAccPlot += [acc(x, b, W, y)]
+            validAccPlot += [acc(val_x, b, W, val_y)]
+            testAccPlot += [acc(test_x, b, W, test_y)]
+
+            W = W - dW * alpha
+            b = b - db * alpha
+
+            # for i in range(len(W)):
+            #     if (abs(alpha * dW[i]) > error_tol):
+            #         W = W - dW * alpha
+            # if (abs(alpha * db) > error_tol):
+            #     b = b - db * alpha
+            # if error_tol >= abs(max(np.amax(dW), db)):
+            #     break
+
+        plt.plot(trainLossPlot, 'b--', label="Train")
+        plt.plot(validLossPlot, 'r--', label="Valid")
+        plt.plot(testLossPlot, 'g--', label="Test")
+        plt.title("Loss vs. Epoch")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.show()
+
+        plt.plot(trainAccPlot, 'b--', label="Train")
+        plt.plot(validAccPlot, 'r--', label="Valid")
+        plt.plot(testAccPlot, 'g--', label="Test")
+        plt.title("Accuracy vs. Epoch")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.show()
+
+        return W, b, trainLossPlot, trainAccPlot, validLossPlot, validAccPlot, testLossPlot, testAccPlot
+
+
+def sigmoid (z):
+    return 1.0/(1.0+np.exp(-z))
 
 def crossEntropyLoss(W, b, x, y, reg):
-    pass
+    # print(W.shape, b, x.shape,y.shape, reg)
+    N = y.shape[0]
+    epsilon = 1e-5
+    twonorm = 0
+    for n in range(W.shape[0]):  # W.shape = (784,1)
+        twonorm += W[n] ** 2
+    twonorm = twonorm[0]
+
+    yhat = sigmoid(np.matmul(x, W) + b)
+    lg = np.log(yhat)
+    lgminus = np.log(1 - yhat + epsilon)
+    ans = (1 / N * np.sum(-(y * lg + (1 - y) * lgminus))) + twonorm * reg / 2
+    return ans
     # Your implementation here
 
 def gradCE(W, b, x, y, reg):
-    pass
+    yhat = sigmoid(np.matmul(x, W) + b)
+    dW = np.matmul(np.transpose(x), (yhat - y)) / (np.shape(y)[0]) + 2 * reg * W
+    db = np.sum((yhat - y)) / (np.shape(y)[0])
+    return dW, db
     # Your implementation here
 
 def buildGraph(loss="MSE"):
@@ -120,22 +199,20 @@ def buildGraph(loss="MSE"):
 
 trainData, validData, testData, trainTarget, validTarget, testTarget = loadData()
 
-print(trainData.shape)
+sample_weights = np.zeros(784)
 trainData = np.moveaxis(trainData,0,-1)
 trainData = np.reshape(trainData,(trainData.shape[0]*trainData.shape[1],trainData.shape[2]))
 validData = np.moveaxis(validData,0,-1)
 validData = np.reshape(validData,(784,100))
 testData = np.moveaxis(testData,0,-1)
 testData = np.reshape(testData,(784,145))
-
-sample_weights = np.zeros(784)
 for i in range(0,len(sample_weights)):
     sample_weights[i] = np.random.randint(-10,10)
-
+sample_weights=sample_weights.reshape(-1,1)
 sample_bias = np.random.randint(-10,10)
 
 # start = time()
-# weights, bias, trainingLosses, trainingAccs, valLosses, valAccs, testLoss, testAcc, iterations = grad_descent(sample_weights,sample_bias,trainData,trainTarget,validData,validTarget,testData,testTarget,0.005,5000,0,1.0/(10**7))
+weights, bias, trainingLosses, trainingAccs, valLosses, valAccs, testLoss, testAcc = grad_descent(sample_weights,sample_bias,trainData,trainTarget,validData,validTarget,testData,testTarget,0.005,500,0,1.0/(10**7))
 # print(time() - start)
 
 # plt.subplot(2,1,1)
